@@ -99,7 +99,6 @@ IMAGE_GENERATION_MODE = 'ask' # 'always'(总是生成) / 'never'(从不) / 'ask'
   - `'always'`: 每次都生成图片（需安装 Playwright）
   - `'never'`: 只生成HTML，不生成图片
   - `'ask'`: 每次运行时询问（默认）
-```
 
 ## 🧭 数据获取
 - 推荐使用 [qq-chat-exporter](https://github.com/shuakami/qq-chat-exporter) 导出 QQ 群聊记录为 JSON。
