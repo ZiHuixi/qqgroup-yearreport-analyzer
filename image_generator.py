@@ -57,6 +57,129 @@ def get_avatar_url(uin):
     return f"https://q1.qlogo.cn/g?b=qq&nk={uin}&s=640"
 
 
+class AIWordSelector:
+    """AI智能选词器"""
+    
+    SYSTEM_PROMPT = """你是一个专业的群聊文化分析师，擅长识别最具代表性的群聊热词。
+
+你的任务是从候选词列表中选出10个最适合作为年度热词的词汇。选词标准：
+1. **使用量大**：高频出现的词更能代表群聊文化
+2. **新颖有趣**：独特、有创意、有梗的词优先
+3. **搞笑幽默**：能引发笑点的词、梗词、谐音梗等
+4. **群聊特色**：体现这个群独特氛围和风格的词
+5. **不避讳粗俗**：脏话、粗话、网络黑话如果有特色也可以选
+
+优先考虑：
+- 网络流行梗、热词
+- 群内特有的黑话、缩写
+- 搞笑表情、emoji组合
+- 有趣的口头禅
+- 独特的表达方式
+
+请从提供的候选词中选出最能代表这个群聊文化的10个词。"""
+
+    def __init__(self):
+        self.client = None
+        self._init_client()
+    
+    def _init_client(self):
+        """初始化OpenAI客户端"""
+        if not cfg.OPENAI_API_KEY or cfg.OPENAI_API_KEY == "sk-your-api-key-here":
+            print("⚠️ 未配置OpenAI API Key，无法使用AI选词")
+            return
+        
+        try:
+            from openai import OpenAI
+            import httpx
+            
+            self.client = OpenAI(
+                api_key=cfg.OPENAI_API_KEY,
+                base_url=cfg.OPENAI_BASE_URL,
+                http_client=httpx.Client(timeout=120.0)
+            )
+        except Exception as e:
+            print(f"⚠️ OpenAI客户端初始化失败: {e}")
+    
+    def select_words(self, candidate_words, top_n=200):
+        """从候选词中智能选出10个年度热词"""
+        if not self.client:
+            print("❌ AI未启用，请配置OpenAI API Key")
+            return None
+        
+        # 准备候选词列表（取前top_n个）
+        candidates = candidate_words[:top_n]
+        
+        # 构建候选词信息
+        words_info = []
+        for idx, word_data in enumerate(candidates, 1):
+            word = word_data['word']
+            freq = word_data['freq']
+            samples = word_data.get('samples', [])
+            sample_preview = samples[0][:30] if samples else '无样本'
+            
+            words_info.append(f"{idx}. {word} ({freq}次) - 样本: {sample_preview}")
+        
+        words_text = '\n'.join(words_info)
+        
+        user_prompt = f"""请从以下{len(candidates)}个候选词中选出10个最适合作为年度热词的词汇：
+
+{words_text}
+
+要求：
+1. 选出的词要有代表性、有趣味、有群聊特色
+2. 优先选择使用量大且有特色的词
+3. 不要回避脏话粗话，只要有特色就可以
+4. 直接输出10个序号，用逗号分隔，例如: 1,5,8,12,15,23,30,42,56,78
+5. 只输出序号，不要有其他文字
+6. 尽量选择前100的，除非后面有特别有趣的词
+7. 尽量不要选择“啊”等无意义填充词，除非在例句中使用的特别有趣"""
+
+        try:
+            print("🤖 AI正在分析并选择年度热词...")
+            response = self.client.chat.completions.create(
+                model=cfg.OPENAI_MODEL,
+                messages=[
+                    {"role": "system", "content": self.SYSTEM_PROMPT},
+                    {"role": "user", "content": user_prompt}
+                ],
+                max_tokens=100,
+                temperature=0.7
+            )
+            
+            result = response.choices[0].message.content.strip()
+            print(f"   AI返回: {result}")
+            
+            # 解析序号
+            indices = []
+            for part in result.replace('，', ',').split(','):
+                try:
+                    idx = int(part.strip())
+                    if 1 <= idx <= len(candidates):
+                        indices.append(idx - 1)  # 转为0索引
+                except:
+                    continue
+            
+            if len(indices) < 10:
+                print(f"⚠️ AI只选出{len(indices)}个词，自动补充前几个...")
+                # 补充前面的词直到10个
+                for i in range(len(candidates)):
+                    if i not in indices and len(indices) < 10:
+                        indices.append(i)
+            
+            indices = indices[:10]
+            selected = [candidates[i] for i in indices]
+            
+            print("\n✅ AI选词完成:")
+            for i, word_data in enumerate(selected, 1):
+                print(f"   {i}. {word_data['word']} ({word_data['freq']}次)")
+            
+            return selected
+            
+        except Exception as e:
+            print(f"❌ AI选词失败: {e}")
+            return None
+
+
 class AICommentGenerator:
     """AI锐评生成器"""
     
@@ -188,6 +311,7 @@ class ImageGenerator:
             self.json_data = analyzer.export_json()
         
         self.enabled = cfg.ENABLE_IMAGE_EXPORT
+        self.ai_selector = None
     
     def display_words_for_selection(self):
         """展示词汇供用户选择"""
@@ -522,15 +646,48 @@ class ImageGenerator:
         
         return None
     
-    def generate(self, auto_select=False, non_interactive=False, generate_image=False, enable_ai=False):
-        """生成报告"""
+    def generate(self, auto_select=False, ai_select=False, non_interactive=False, generate_image=False, enable_ai=False):
+        """生成报告
+        
+        参数:
+            auto_select: 自动选择前10个（简单模式）
+            ai_select: 使用AI智能选词（从前200个中选出最有趣的10个）
+            non_interactive: 非交互模式
+            generate_image: 是否生成图片
+            enable_ai: 是否启用AI锐评
+        """
         if not self.json_data:
             print("❌ 无数据")
             return None, None
         
-        if auto_select or non_interactive:
+        # AI 智能选词模式
+        if ai_select:
+            print("\n" + "=" * 60)
+            print("🤖 AI智能选词模式")
+            print("=" * 60)
+            
+            top_words = self.json_data.get('topWords', [])
+            if not top_words:
+                print("❌ 无热词数据")
+                return None, None
+            
+            # 初始化AI选词器
+            if not self.ai_selector:
+                self.ai_selector = AIWordSelector()
+            
+            # AI选词
+            self.selected_words = self.ai_selector.select_words(top_words, top_n=200)
+            
+            if not self.selected_words:
+                print("⚠️ AI选词失败，改用自动选择前10个")
+                self.selected_words = top_words[:10]
+        
+        # 简单自动选择模式
+        elif auto_select or non_interactive:
             self.selected_words = self.json_data.get('topWords', [])[:10]
             print(f"📝 自动选择前10个热词")
+        
+        # 交互选择模式
         else:
             if not self.display_words_for_selection():
                 return None, None
@@ -554,15 +711,24 @@ class ImageGenerator:
 
 
 def interactive_generate(json_path=None, analyzer=None):
+    """交互式选词生成"""
     gen = ImageGenerator(analyzer=analyzer, json_path=json_path)
     gen.enabled = True
     return gen.generate(auto_select=False, enable_ai=True)
 
 
 def auto_generate(json_path=None, analyzer=None):
+    """自动选择前10个生成"""
     gen = ImageGenerator(analyzer=analyzer, json_path=json_path)
     gen.enabled = True
     return gen.generate(auto_select=True, enable_ai=False)
+
+
+def ai_generate(json_path=None, analyzer=None):
+    """AI智能选词生成"""
+    gen = ImageGenerator(analyzer=analyzer, json_path=json_path)
+    gen.enabled = True
+    return gen.generate(ai_select=True, enable_ai=True)
 
 
 if __name__ == '__main__':
@@ -588,9 +754,16 @@ if __name__ == '__main__':
     
     print(f"\n📂 {json_path}")
     
-    mode = input("\n1.交互选词 2.自动前10 [1/2]: ").strip()
+    print("\n选择模式:")
+    print("  1. 交互选词 - 手动选择10个热词")
+    print("  2. 自动前10 - 直接选择前10个")
+    print("  3. AI智能选词 - 让AI从前200个中挑选最有趣的10个 🤖")
     
-    if mode == '2':
+    mode = input("\n请选择 [1/2/3]: ").strip()
+    
+    if mode == '3':
+        html_path, img_path = ai_generate(json_path=json_path)
+    elif mode == '2':
         html_path, img_path = auto_generate(json_path=json_path)
     else:
         html_path, img_path = interactive_generate(json_path=json_path)

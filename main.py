@@ -77,18 +77,27 @@ def main():
         print("=" * 60)
         
         print("\n选择生成模式:")
-        print("  1. 交互式选择热词 (推荐)")
-        print("  2. 自动选择前10个热词")
-        print("  3. 跳过")
+        print("  1. 交互式选择热词 - 手动选择10个热词")
+        print("  2. 自动选择前10 - 直接选择前10个")
+        print("  3. AI智能选词 - 让AI从前200个中挑选最有趣的10个 🤖")
+        print("  4. 跳过")
         
-        choice = input("\n请选择 [1/2/3]: ").strip()
+        choice = input("\n请选择 [1/2/3/4]: ").strip()
         
-        if choice == '3':
+        if choice == '4':
             print("⏭️ 跳过可视化报告生成")
         else:
             img_gen = ImageGenerator(analyzer)
-            auto_select = (choice == '2')
-            html_path, img_path = img_gen.generate(auto_select=auto_select)
+            
+            if choice == '3':
+                # AI 智能选词模式
+                html_path, img_path = img_gen.generate(ai_select=True, enable_ai=True)
+            elif choice == '2':
+                # 自动选择前10
+                html_path, img_path = img_gen.generate(auto_select=True, enable_ai=False)
+            else:
+                # 交互式选择（默认）
+                html_path, img_path = img_gen.generate(auto_select=False, enable_ai=True)
             
             if html_path:
                 print(f"\n📄 HTML报告: {html_path}")
