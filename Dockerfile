@@ -52,7 +52,7 @@ COPY backend/requirements.txt ./
 COPY requirements.txt ./root_requirements.txt
 
 # 安装 Python 依赖
-RUN pip install --no-cache-dir -r backend/requirements.txt && \
+RUN pip install --no-cache-dir -r requirements.txt && \
     pip install --no-cache-dir -r root_requirements.txt
 
 # 安装 Playwright 浏览器
