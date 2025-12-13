@@ -305,7 +305,6 @@ main() {
     fi
     
     install_dependencies
-    configure_firewall
     create_deploy_user
     clone_project
     setup_python_env
