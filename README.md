@@ -2,8 +2,8 @@
 
 QQ 群聊天记录分析工具，可以生成精美的年度报告。
 
-#### ❗请注意本项目 AI 含量极高，请酌情使用。
-#### ❗该项目仍处于开发阶段，功能未完善且存在大量 Bug ，还是请酌情使用。
+#### ❗请注意本项目代码基于vibe coding开发，ai含量高，请酌情使用。
+#### ❗该项目仍处于开发阶段，某些迭代中可能功能未完善且存在大量 Bug ，还是请酌情使用，稳定版会稍后发布release, 在线版网站正在制作中，欢迎大家提出建议。
 
 ## ✨ 核心特性
 
@@ -39,7 +39,9 @@ QQ 群聊天记录分析工具，可以生成精美的年度报告。
    - 下载：[qq-chat-exporter](https://github.com/shuakami/qq-chat-exporter)
    - 使用该项目导出 QQ 群聊天记录为 JSON
 
-### 🎯 第2步：一键启动
+### 🎯 第2步：启动服务
+
+#### Windows 用户（推荐使用一键启动）
 
 **首次运行：**
 
@@ -52,12 +54,51 @@ QQ 群聊天记录分析工具，可以生成精美的年度报告。
 
 直接双击 `start.bat` 即可启动所有服务。
 
+#### macOS / Linux 用户
+mac默认可能5000端口被占用的话换一个端口
+
+**方式 A：手动启动前后端**
+
+1. **启动后端**（新开一个终端）：
+   ```bash
+   cd backend
+   pip install -r requirements.txt
+   PORT=5000 python app.py
+   # 如果 5000 端口被占用，会自动尝试 5001
+   ```
+
+2. **启动前端**（再开一个终端）：
+   ```bash
+   cd frontend
+   npm install
+   npm run dev
+   ```
+
+3. **配置前端代理**（如果后端不是 5000 端口）：
+   - 编辑 `frontend/vite.config.js`
+   - 修改 `proxy.target` 为实际后端地址（如 `http://localhost:5001`）
+
+**方式 B：使用 Docker 部署**
+
+详见 [DOCKER.md](DOCKER.md) 文件，或执行：
+
+```bash
+# 构建并启动
+docker-compose up -d --build
+
+# 查看日志
+docker-compose logs -f
+
+# 访问 http://localhost:5001
+```
+
 ### ✅ 第3步：访问应用
 
 启动成功后，浏览器访问：
 
 - **前端界面**：http://localhost:5173
-- **后端API**：http://localhost:5000
+- **后端API**：http://localhost:5000（或你配置的端口）
+- **Docker 部署**：http://localhost:5001
 
 就是这么简单！🎉
 
@@ -115,9 +156,17 @@ OPENAI_MODEL=gpt-3.5-turbo
 
 通过浏览器访问可视化界面，提供最友好的交互体验。
 
-
 **使用步骤：**
-1. 运行 `start.bat` 启动服务
+
+**Windows 用户：**
+1. 双击运行 `start.bat` 启动服务
+2. 浏览器访问 http://localhost:5173
+3. 上传 QQ 群聊天记录 JSON 文件
+4. 选择想要展示的热词
+5. 生成并查看精美报告
+
+**macOS / Linux 用户：**
+1. 按照"第2步"中的说明启动前后端服务
 2. 浏览器访问 http://localhost:5173
 3. 上传 QQ 群聊天记录 JSON 文件
 4. 选择想要展示的热词
@@ -144,10 +193,38 @@ OPENAI_MODEL=gpt-3.5-turbo
 
 4. 查看结果：生成的报告在 `runtime_outputs` 目录
 
-### 方式三：Docker部署
+### 方式三：Docker 部署（推荐用于生产环境）
 
-习惯使用docker一键部署的用户可以尝试参考DOCKER.md文件进行部署
-第一次部署可能较慢，但是一键部署不用啥操作
+适合想要一键部署或部署到服务器的用户。
+
+**使用步骤：**
+
+1. **确保已安装 Docker 和 Docker Compose**
+   - macOS: `brew install --cask docker`
+   - Linux: 参考 [Docker 官方文档](https://docs.docker.com/get-docker/)
+
+2. **构建并启动容器**：
+   ```bash
+   docker-compose up -d --build
+   ```
+
+3. **访问应用**：
+   - 浏览器访问：http://localhost:5001
+
+4. **查看日志**：
+   ```bash
+   docker-compose logs -f
+   ```
+
+5. **停止服务**：
+   ```bash
+   docker-compose down
+   ```
+
+**注意事项：**
+- 首次构建需要下载依赖，可能需要 5-10 分钟
+- 如果端口 5001 被占用，可修改 `docker-compose.yml` 中的端口映射
+- 详细说明请参考 [DOCKER.md](DOCKER.md)
 
 ## 📊 生成的报告包含
 
@@ -222,7 +299,8 @@ QQgroup-annual-report-analyzer/
    - 如需 AI 功能，配置 OpenAI API Key
 
 2. **日常使用**
-   - 双击 `start.bat` 启动
+   - **Windows**：双击 `start.bat` 启动
+   - **macOS/Linux**：手动启动前后端或使用 Docker
    - 在浏览器中上传聊天记录
    - 关闭服务窗口即停止服务
 

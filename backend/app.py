@@ -383,15 +383,9 @@ def get_templates():
 
 
 @app.route("/api/reports/<report_id>", methods=["GET"])
-@app.route("/report/<report_id>", methods=["GET"])
-@app.route("/report/<template_id>/<report_id>", methods=["GET"])
-def get_report(report_id, template_id=None):
+def get_report_api(report_id):
     """
-    获取报告数据（返回JSON供前端动态渲染）
-    支持路径：
-    - /api/reports/{id}
-    - /report/{id}  (默认classic模板)
-    - /report/{template_id}/{id}
+    获取报告数据（API接口，返回JSON）
     """
     if not db_service:
         return jsonify({"error": "数据库服务未初始化"}), 500

@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   web:
     build:
@@ -12,6 +10,8 @@ services:
       - FLASK_ENV=production
       - PORT=5000
       - ENABLE_IMAGE_EXPORT=true
+      - ALLOWED_ORIGINS=http://localhost:5001,http://localhost:5173,http://localhost:5000
+      - FRONTEND_URL=http://localhost:5000
       # 如果需要 OpenAI，取消下面的注释并设置
       # - OPENAI_API_KEY=your-api-key
       # - OPENAI_BASE_URL=https://api.openai.com/v1
