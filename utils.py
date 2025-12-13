@@ -6,8 +6,126 @@ from datetime import datetime, timezone, timedelta
 from collections import Counter
 
 def load_json(filepath):
-    with open(filepath, 'r', encoding='utf-8-sig') as f:
-        return json.load(f)
+    """
+    使用流式解析加载 JSON 文件，减少内存占用
+    对于大文件，只保留必要的字段
+    """
+    try:
+        import ijson
+        print(f"📖 使用流式解析加载 JSON 文件...")
+        
+        with open(filepath, 'rb') as f:
+            parser = ijson.parse(f)
+            result = {
+                'messages': [],
+                'chatName': None,
+                'chatInfo': {}
+            }
+            
+            current_message = None
+            in_messages = False
+            message_count = 0
+            
+            for prefix, event, value in parser:
+                # 聊天名称
+                if prefix == 'chatName' and event == 'string':
+                    result['chatName'] = value
+                elif prefix == 'chatInfo.name' and event == 'string':
+                    result['chatInfo']['name'] = value
+                
+                # 开始处理 messages 数组
+                elif prefix == 'messages' and event == 'start_array':
+                    in_messages = True
+                elif prefix == 'messages' and event == 'end_array':
+                    in_messages = False
+                
+                # 处理单个消息
+                elif in_messages:
+                    if prefix == 'messages.item' and event == 'start_map':
+                        current_message = {}
+                        message_count += 1
+                        if message_count % 10000 == 0:
+                            print(f"   已处理 {message_count} 条消息...")
+                    
+                    elif prefix == 'messages.item' and event == 'end_map':
+                        if current_message:
+                            result['messages'].append(current_message)
+                            current_message = None
+                    
+                    # 保留必要字段
+                    elif current_message is not None:
+                        # 消息 ID
+                        if prefix == 'messages.item.messageId' and event == 'string':
+                            current_message['messageId'] = value
+                        
+                        # 时间戳
+                        elif prefix == 'messages.item.timestamp' and event in ('string', 'number'):
+                            current_message['timestamp'] = str(value)
+                        
+                        # 发送者信息
+                        elif prefix == 'messages.item.sender.uin' and event == 'string':
+                            if 'sender' not in current_message:
+                                current_message['sender'] = {}
+                            current_message['sender']['uin'] = value
+                        elif prefix == 'messages.item.sender.name' and event == 'string':
+                            if 'sender' not in current_message:
+                                current_message['sender'] = {}
+                            current_message['sender']['name'] = value
+                        
+                        # 内容
+                        elif prefix == 'messages.item.content.text' and event == 'string':
+                            if 'content' not in current_message:
+                                current_message['content'] = {}
+                            current_message['content']['text'] = value
+                        
+                        # 回复信息
+                        elif prefix == 'messages.item.content.reply.referencedMessageId' and event == 'string':
+                            if 'content' not in current_message:
+                                current_message['content'] = {}
+                            if 'reply' not in current_message['content']:
+                                current_message['content']['reply'] = {}
+                            current_message['content']['reply']['referencedMessageId'] = value
+                        
+                        # rawMessage 中的关键字段
+                        elif prefix == 'messages.item.rawMessage.subMsgType' and event == 'number':
+                            if 'rawMessage' not in current_message:
+                                current_message['rawMessage'] = {}
+                            current_message['rawMessage']['subMsgType'] = value
+                        elif prefix == 'messages.item.rawMessage.sendMemberName' and event == 'string':
+                            if 'rawMessage' not in current_message:
+                                current_message['rawMessage'] = {}
+                            current_message['rawMessage']['sendMemberName'] = value
+                        
+                        # elements 数组（用于 @ 统计）
+                        elif 'elements' in prefix:
+                            if 'rawMessage' not in current_message:
+                                current_message['rawMessage'] = {}
+                            if 'elements' not in current_message['rawMessage']:
+                                current_message['rawMessage']['elements'] = []
+                            
+                            # 简化：只保存包含 @ 的元素
+                            if 'textElement.atType' in prefix and event == 'number' and value > 0:
+                                element = {'elementType': 1, 'textElement': {'atType': value}}
+                                current_message['rawMessage']['elements'].append(element)
+                            elif 'textElement.atUid' in prefix and event == 'string':
+                                if current_message['rawMessage']['elements']:
+                                    current_message['rawMessage']['elements'][-1]['textElement']['atUid'] = value
+        
+        print(f"✅ 成功加载 {len(result['messages'])} 条消息")
+        return result
+        
+    except ImportError:
+        print("⚠️ ijson 未安装，使用标准加载（大文件可能导致内存不足）")
+        with open(filepath, 'r', encoding='utf-8-sig') as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"⚠️ 流式解析失败，尝试标准加载: {e}")
+        try:
+            with open(filepath, 'r', encoding='utf-8-sig') as f:
+                return json.load(f)
+        except MemoryError:
+            print("❌ 文件过大，无法加载到内存")
+            raise MemoryError("JSON 文件过大，请减小文件大小或增加系统内存")
 
 def extract_emojis(text):
     emoji_pattern = re.compile(

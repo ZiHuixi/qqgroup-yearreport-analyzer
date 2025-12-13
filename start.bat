@@ -36,7 +36,7 @@ echo.
 echo [3/9] 检查后端配置文件...
 if not exist "backend\.env" (
     echo ⚠️  未找到backend\.env，正在创建...
-    copy "backend\.env.example" "backend\.env" >nul
+    copy "backend\.env.example" "backend\.env"
     echo ✅ 已创建 backend\.env
     set NEED_CONFIG=1
 ) else (
@@ -48,7 +48,7 @@ echo.
 echo [4/9] 检查命令行模式配置文件...
 if not exist "config.py" (
     echo ⚠️  未找到config.py，正在创建...
-    copy "config.example.py" "config.py" >nul
+    copy "config.example.py" "config.py"
     echo ✅ 已创建 config.py
     set NEED_CONFIG=1
 ) else (

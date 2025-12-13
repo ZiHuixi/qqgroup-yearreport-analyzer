@@ -35,6 +35,7 @@ if PROJECT_ROOT not in sys.path:
 import config
 import analyzer as analyzer_mod
 from image_generator import ImageGenerator, AIWordSelector
+from utils import load_json
 
 from backend.db_service import DatabaseService
 from backend.json_storage import JSONStorageService
@@ -150,8 +151,8 @@ def upload_and_analyze():
     file.save(temp_path)
 
     try:
-        # 解析并分析JSON
-        data = json.load(open(temp_path, encoding="utf-8-sig"))
+        # 使用流式解析加载JSON（避免内存溢出）
+        data = load_json(temp_path)
         analyzer = analyzer_mod.ChatAnalyzer(data)
         analyzer.analyze()
         report = analyzer.export_json()
@@ -246,7 +247,8 @@ def finalize_report_endpoint():
         # 重建analyzer（用于AI锐评）
         original_json_path = os.path.join(temp_dir, f"{report_id}.json")
         if os.path.exists(original_json_path):
-            json_data = json.load(open(original_json_path, encoding="utf-8-sig"))
+            # 使用流式解析加载JSON（避免内存溢出）
+            json_data = load_json(original_json_path)
             analyzer = analyzer_mod.ChatAnalyzer(json_data)
             analyzer.analyze()
         else:
