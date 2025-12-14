@@ -61,12 +61,13 @@ mac默认可能5000端口被占用的话换一个端口
 
 1. **启动后端**（新开一个终端）：
    ```bash
+   cp config.example.py config.py
    cd backend
    pip install -r requirements.txt
    PORT=5000 python app.py
    # 如果 5000 端口被占用，会自动尝试 5001
    ```
-
+   
 2. **启动前端**（再开一个终端）：
    ```bash
    cd frontend
